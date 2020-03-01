@@ -10,9 +10,7 @@ from flask import render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, current_user, login_required
 from app.forms import LoginForm
 from app.models import UserProfile
-
-from werkzeug.security import generate_password_hash
-
+from werkzeug.security import check_password_hash
 
 ###
 # Routing for your application.
@@ -29,32 +27,48 @@ def about():
     """Render the website's about page."""
     return render_template('about.html')
 
+@app.route('/secure-page')
+@login_required
+def secure_page():
+    return render_template('secure_page.html')
 
-@app.route("/login", methods=["GET", "POST"])
+
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    form = LoginForm()
-    if request.method == "POST":
-        # change this to actually validate the entire form submission
-        # and not just one field
-        if form.validate_on_submit():
-            username = form.username.data
-            password = form.password.data
-            user = UserProfile.query.filter_by(username=username,password=password).first()
-            # Get the username and password values from the form.
+    #if current_user.is_authenticated:
+        # if user is already logged in, just redirect them to  secure page
+        #return redirect(url_for('secure_page'))
 
-            # using your model, query database for a user based on the username
-            # and password submitted. Remember you need to compare the password hash.
-            # You will need to import the appropriate function to do so.
-            # Then store the result of that query to a `user` variable so it can be
-            # passed to the login_user() method below.
+    form = LoginForm()
+    # change this to actually validate the entire form submission
+    # and not just one field
+    if request.method == 'POST' and form.validate_on_submit():
+       # Get the username and password values from the form.
+        username = form.username.data
+        password = form.password.data
+
+        # using your model, query database for a user based on the username
+        # and password submitted. Remember you need to compare the password hash.
+        # You will need to import the appropriate function to do so.
+        # Then store the result of that query to a `user` variable so it can be
+        # passed to the login_user() method below.
+
+        user = UserProfile.query.filter_by(username=username).first()
+        if user is not None and check_password_hash(user.password, password):
+
+            # If the user is not blank, meaning if a user was actually found,
+            # then login the user and create the user session.
+            # user should be an instance of your `User` class
 
             # get user id, load into session
-            if user is not None and check_password_hash(user.password,password):
-                login_user(user)
-                 # remember to flash a message to the user
-                flash('Logged in successfully.', 'success')
-                return redirect(url_for('secure-page')) # they should be redirected to a secure-page route instead
-    return render_template("login.html", form=form)
+
+            # remember to flash a message to the user
+            flash('Logged in successfully.', 'success')
+            return redirect(url_for('secure_page')) # they should be redirected to a secure-page route instead
+        else:
+            flash('Username or Password is incorrect.', 'danger')
+    return render_template('login.html', form=form)
+
 
 
 # user_loader callback. This callback is used to reload the user object from
